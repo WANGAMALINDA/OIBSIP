@@ -11,12 +11,16 @@ export async function sendLowStockAlerts() {
   })
 
   for (const item of lowStock) {
-    await sendEmail({
-      to: adminEmail,
-      subject: `Low pizza inventory: ${item.name}`,
-      html: `<p>${item.category} <strong>${item.name}</strong> has ${item.quantity} units remaining. The alert threshold is ${item.lowStockThreshold}.</p>`,
-    })
-    item.notificationSent = true
-    await item.save()
+    try {
+      await sendEmail({
+        to: adminEmail,
+        subject: `Low pizza inventory: ${item.name}`,
+        html: `<p>${item.category} <strong>${item.name}</strong> has ${item.quantity} units remaining. The alert threshold is ${item.lowStockThreshold}.</p>`,
+      })
+      item.notificationSent = true
+      await item.save()
+    } catch (error) {
+      console.error(`Could not send low-stock alert for ${item.key}:`, error)
+    }
   }
 }

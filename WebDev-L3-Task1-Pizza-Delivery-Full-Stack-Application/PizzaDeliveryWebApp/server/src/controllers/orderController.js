@@ -9,6 +9,8 @@ import {
 } from '../services/inventoryService.js'
 import {
   createRazorpayOrder,
+  getRazorpayPayment,
+  refundRazorpayPayment,
   verifyCheckoutSignature,
 } from '../services/paymentService.js'
 
@@ -18,7 +20,22 @@ const nextStatus = {
 }
 
 export async function getMenu(req, res) {
-  res.json({ menu })
+  const inventory = await Inventory.find().select('key quantity')
+  const stock = new Map(inventory.map((item) => [item.key, item.quantity]))
+  const withStock = (category, options) =>
+    options.map((option) => ({
+      ...option,
+      available: (stock.get(`${category}:${option.name}`) || 0) > 0,
+    }))
+
+  res.json({
+    menu: {
+      bases: withStock('base', menu.bases),
+      sauces: withStock('sauce', menu.sauces),
+      cheeses: withStock('cheese', menu.cheeses),
+      vegetables: withStock('vegetable', menu.vegetables),
+    },
+  })
 }
 
 export async function createOrderPayment(req, res) {
@@ -75,19 +92,18 @@ export async function verifyOrderPayment(req, res) {
   if ([orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature].some((value) => typeof value !== 'string')) {
     return res.status(400).json({ message: 'Payment verification details are incomplete.' })
   }
+  if (!mongoose.isValidObjectId(orderId)) {
+    return res.status(400).json({ message: 'Order id is invalid.' })
+  }
 
   const order = await Order.findOne({ _id: orderId, user: req.user._id })
   if (!order || order.razorpayOrderId !== razorpayOrderId) {
     return res.status(404).json({ message: 'Order not found.' })
   }
-  if (order.status !== 'payment_pending') {
-    return res.status(409).json({ message: 'This order is no longer awaiting payment.' })
-  }
   if (!verifyCheckoutSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
     return res.status(400).json({ message: 'Payment signature is invalid.' })
   }
 
-  const { getRazorpayPayment } = await import('../services/paymentService.js')
   const payment = await getRazorpayPayment(razorpayPaymentId)
   if (
     payment.order_id !== razorpayOrderId ||
@@ -97,9 +113,36 @@ export async function verifyOrderPayment(req, res) {
   ) {
     return res.status(409).json({ message: 'Payment has not been captured for this order.' })
   }
+  if (order.status === 'cancelled') {
+    await refundExpiredOrder(order, razorpayPaymentId)
+    return res.status(409).json({ message: 'The stock reservation expired. A refund has been requested.' })
+  }
+  if (order.status !== 'payment_pending') {
+    return res.status(409).json({ message: 'This order is no longer awaiting payment.' })
+  }
 
   const updated = await markOrderPaid(order, razorpayPaymentId)
   res.json({ message: 'Payment confirmed.', order: updated })
+}
+
+async function refundExpiredOrder(order, paymentId) {
+  const claim = await Order.findOneAndUpdate(
+    { _id: order._id, status: 'cancelled', refundStatus: { $in: ['none', 'failed'] } },
+    { $set: { refundStatus: 'pending', razorpayPaymentId: paymentId } },
+    { new: true },
+  )
+  if (!claim) return
+
+  try {
+    const refundId = await refundRazorpayPayment(paymentId)
+    await Order.updateOne(
+      { _id: order._id, refundStatus: 'pending' },
+      { $set: { refundStatus: 'processed', razorpayRefundId: refundId } },
+    )
+  } catch (error) {
+    await Order.updateOne({ _id: order._id, refundStatus: 'pending' }, { $set: { refundStatus: 'failed' } })
+    throw error
+  }
 }
 
 async function markOrderPaid(order, paymentId) {
@@ -129,6 +172,12 @@ async function markOrderPaid(order, paymentId) {
 export async function applyWebhookPayment(orderId, paymentId, amount, currency) {
   const order = await Order.findOne({ razorpayOrderId: orderId })
   if (!order || order.totalPaise !== amount || currency !== 'INR') return
+  if (order.status === 'received' && order.razorpayPaymentId === paymentId) return
+  if (order.status === 'cancelled') {
+    await refundExpiredOrder(order, paymentId)
+    return
+  }
+  if (order.status !== 'payment_pending') return
   await markOrderPaid(order, paymentId)
 }
 
@@ -161,6 +210,9 @@ export async function updateOrderStatus(req, res) {
   const { status } = req.body
   if (!Object.values(nextStatus).includes(status)) {
     return res.status(400).json({ message: 'Choose the next valid order status.' })
+  }
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ message: 'Order id is invalid.' })
   }
   const order = await Order.findOneAndUpdate(
     { _id: req.params.id, status: Object.keys(nextStatus).find((current) => nextStatus[current] === status) },

@@ -4,12 +4,14 @@ import { api } from '../api.js'
 export default function AuthPanel({ onLogin, notice, setNotice }) {
   const [mode, setMode] = useState('login')
   const [adminMode, setAdminMode] = useState(false)
+  const [needsVerification, setNeedsVerification] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [busy, setBusy] = useState(false)
 
   async function submit(event) {
     event.preventDefault()
     setNotice('')
+    setNeedsVerification(false)
     setBusy(true)
     try {
       if (mode === 'forgot') {
@@ -37,8 +39,23 @@ export default function AuthPanel({ onLogin, notice, setNotice }) {
       }
     } catch (error) {
       setNotice(error.message)
+      setNeedsVerification(error.message.toLowerCase().includes('verify your email'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function resendVerification() {
+    setNotice('')
+    try {
+      const result = await api('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email: form.email }),
+      })
+      setNotice(result.message)
+      setNeedsVerification(false)
+    } catch (error) {
+      setNotice(error.message)
     }
   }
 
@@ -59,14 +76,14 @@ export default function AuthPanel({ onLogin, notice, setNotice }) {
         <button
           className={!adminMode ? 'selected' : ''}
           type="button"
-          onClick={() => { setAdminMode(false); setMode('login'); setNotice('') }}
+          onClick={() => { setAdminMode(false); setMode('login'); setNotice(''); setNeedsVerification(false) }}
         >
           Customer
         </button>
         <button
           className={adminMode ? 'selected' : ''}
           type="button"
-          onClick={() => { setAdminMode(true); setMode('login'); setNotice('') }}
+          onClick={() => { setAdminMode(true); setMode('login'); setNotice(''); setNeedsVerification(false) }}
         >
           Admin
         </button>
@@ -114,6 +131,11 @@ export default function AuthPanel({ onLogin, notice, setNotice }) {
         </button>
       </form>
       {notice && <p className="notice" role="status">{notice}</p>}
+      {needsVerification && (
+        <button className="text-button" type="button" onClick={resendVerification}>
+          Send a new verification email
+        </button>
+      )}
       {!adminMode && (
         <div className="auth-links">
           {mode !== 'register' && (

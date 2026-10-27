@@ -30,21 +30,37 @@ export const menu = {
 }
 
 export function getOrderItems(input) {
-  const findOption = (options, name, field) => options.find((option) => option.name === name)
-  const base = findOption(menu.bases, input.base, 'base')
-  const sauce = findOption(menu.sauces, input.sauce, 'sauce')
-  const cheese = findOption(menu.cheeses, input.cheese, 'cheese')
-  const vegetables = Array.isArray(input.vegetables) ? input.vegetables : []
+  if (!input || typeof input !== 'object') {
+    const error = new Error('Choose a valid pizza before ordering.')
+    error.status = 400
+    throw error
+  }
+  const findOption = (options, name) => options.find((option) => option.name === name)
+  const base = findOption(menu.bases, input.base)
+  const sauce = findOption(menu.sauces, input.sauce)
+  const cheese = findOption(menu.cheeses, input.cheese)
+  const vegetables = input.vegetables
+  if (!Array.isArray(vegetables)) {
+    const error = new Error('Vegetables must be supplied as a list.')
+    error.status = 400
+    throw error
+  }
   const uniqueVegetables = [...new Set(vegetables)]
 
-  if (!base || !sauce || !cheese || vegetables.length !== uniqueVegetables.length) {
+  if (
+    !base ||
+    !sauce ||
+    !cheese ||
+    vegetables.some((vegetable) => typeof vegetable !== 'string') ||
+    vegetables.length !== uniqueVegetables.length
+  ) {
     const error = new Error('Choose a valid base, sauce, cheese, and vegetable selection.')
     error.status = 400
     throw error
   }
 
   const vegetableOptions = uniqueVegetables.map((name) =>
-    findOption(menu.vegetables, name, 'vegetable'),
+    findOption(menu.vegetables, name),
   )
   if (vegetableOptions.some((option) => !option)) {
     const error = new Error('One or more vegetables are not available.')

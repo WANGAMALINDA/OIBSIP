@@ -39,7 +39,7 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
     setBusy(true)
     setNotice('')
     try {
-      const currentMenu = await ensureMenu()
+      await ensureMenu()
       const order = await api('/payments/order', {
         token,
         method: 'POST',
@@ -117,11 +117,14 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
 
   const activeField = fields[step]
   const options = menu[activeField]
-  const totalPaise = ['bases', 'sauces', 'cheeses']
-    .map((group) => menu[group].find((item) => item.name === items[fields[['bases', 'sauces', 'cheeses'].indexOf(group)]])?.pricePaise || 0)
-    .reduce((sum, price) => sum + price, 0) +
+  const priceOf = (group, selected) =>
+    menu[group].find((item) => item.name === selected)?.pricePaise || 0
+  const totalPaise =
+    priceOf('bases', items.base) +
+    priceOf('sauces', items.sauce) +
+    priceOf('cheeses', items.cheese) +
     items.vegetables.reduce(
-      (sum, vegetable) => sum + (menu.vegetables.find((item) => item.name === vegetable)?.pricePaise || 0),
+      (sum, vegetable) => sum + priceOf('vegetables', vegetable),
       0,
     )
 
@@ -167,16 +170,23 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
             ? items.vegetables.includes(option.name)
             : items[activeField] === option.name
           return (
-            <label className={checked ? 'option-card checked' : 'option-card'} key={option.name}>
+            <label className={`${checked ? 'option-card checked' : 'option-card'}${option.available ? '' : ' unavailable'}`} key={option.name}>
               <input
                 checked={checked}
                 name={activeField}
                 onChange={() => choose(option.name)}
+                disabled={!option.available}
                 type={activeField === 'vegetables' ? 'checkbox' : 'radio'}
               />
               <span>
                 <strong>{option.name}</strong>
-                <small>{option.pricePaise ? `+${formatPrice(option.pricePaise)}` : 'Included'}</small>
+                <small>
+                  {!option.available
+                    ? 'Out of stock'
+                    : option.pricePaise
+                      ? `+${formatPrice(option.pricePaise)}`
+                      : 'Included'}
+                </small>
               </span>
             </label>
           )

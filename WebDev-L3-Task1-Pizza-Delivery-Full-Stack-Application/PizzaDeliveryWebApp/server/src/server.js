@@ -1,14 +1,24 @@
 import dotenv from 'dotenv'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import app from './app.js'
-import { connectDatabase } from './config/database.js'
-import { initializeAdmin } from './services/adminSetupService.js'
-import { initializeInventory } from './services/inventoryService.js'
-import { releaseExpiredReservations } from './services/reservationService.js'
-import { sendLowStockAlerts } from './services/stockAlertService.js'
 
 dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../.env') })
+
+const [
+  { default: app },
+  { connectDatabase },
+  { initializeAdmin },
+  { initializeInventory },
+  { releaseExpiredReservations },
+  { sendLowStockAlerts },
+] = await Promise.all([
+  import('./app.js'),
+  import('./config/database.js'),
+  import('./services/adminSetupService.js'),
+  import('./services/inventoryService.js'),
+  import('./services/reservationService.js'),
+  import('./services/stockAlertService.js'),
+])
 
 const port = Number(process.env.PORT || 3000)
 
@@ -20,14 +30,22 @@ await connectDatabase()
 await initializeAdmin()
 await initializeInventory()
 
-const maintenanceTimer = setInterval(async () => {
+let maintenanceRunning = false
+async function runMaintenance() {
+  if (maintenanceRunning) return
+  maintenanceRunning = true
   try {
     await releaseExpiredReservations()
     await sendLowStockAlerts()
   } catch (error) {
     console.error('Scheduled maintenance failed:', error)
+  } finally {
+    maintenanceRunning = false
   }
-}, 5 * 60 * 1000)
+}
+
+void runMaintenance()
+const maintenanceTimer = setInterval(runMaintenance, 5 * 60 * 1000)
 maintenanceTimer.unref()
 
 const server = app.listen(port, () => {

@@ -18,3 +18,13 @@ export async function sendEmail({ to, subject, html }) {
     throw new Error(`Email delivery failed (${response.status}): ${detail}`)
   }
 }
+
+export function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character])
+}

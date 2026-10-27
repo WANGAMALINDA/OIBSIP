@@ -25,6 +25,6 @@ export const statusLabels = {
   payment_pending: 'Awaiting payment',
   received: 'Order received',
   in_kitchen: 'In kitchen',
-  out_for_delivery: 'Sent for delivery',
+  out_for_delivery: 'Sent to delivery',
   cancelled: 'Cancelled',
 }

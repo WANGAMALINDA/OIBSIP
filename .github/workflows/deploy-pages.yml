@@ -1,0 +1,56 @@
+name: Deploy frontend to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp/package-lock.json
+      - name: Install dependencies
+        working-directory: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp
+        run: npm ci
+      - name: Build frontend
+        working-directory: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /OIBSIP/
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

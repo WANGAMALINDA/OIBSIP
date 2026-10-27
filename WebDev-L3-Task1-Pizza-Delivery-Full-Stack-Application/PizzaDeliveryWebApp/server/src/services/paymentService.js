@@ -5,6 +5,9 @@ function getCredentials() {
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
     throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.')
   }
+  if (!RAZORPAY_KEY_ID.startsWith('rzp_test_')) {
+    throw new Error('Only Razorpay test-mode keys are accepted by this project.')
+  }
   return { keyId: RAZORPAY_KEY_ID, secret: RAZORPAY_KEY_SECRET }
 }
 
@@ -33,6 +36,24 @@ export async function getRazorpayPayment(paymentId) {
   const payment = await response.json()
   if (!response.ok) throw new Error(payment.error?.description || 'Could not verify Razorpay payment.')
   return payment
+}
+
+export async function refundRazorpayPayment(paymentId) {
+  const { keyId, secret } = getCredentials()
+  const response = await fetch(
+    `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ notes: { reason: 'Order reservation expired' } }),
+    },
+  )
+  const refund = await response.json()
+  if (!response.ok) throw new Error(refund.error?.description || 'Razorpay refund request failed.')
+  return refund.id
 }
 
 export function verifyCheckoutSignature(orderId, paymentId, signature) {

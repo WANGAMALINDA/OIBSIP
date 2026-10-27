@@ -6,11 +6,16 @@ import { verifyWebhookSignature } from '../services/paymentService.js'
 
 export async function razorpayWebhook(req, res) {
   const signature = req.get('x-razorpay-signature')
-  if (!verifyWebhookSignature(req.body, signature)) {
+  if (!Buffer.isBuffer(req.body) || !verifyWebhookSignature(req.body, signature)) {
     return res.status(400).json({ message: 'Webhook signature is invalid.' })
   }
 
-  const event = JSON.parse(req.body.toString('utf8'))
+  let event
+  try {
+    event = JSON.parse(req.body.toString('utf8'))
+  } catch {
+    return res.status(400).json({ message: 'Webhook payload is invalid.' })
+  }
   if (event.event === 'payment.captured') {
     const payment = event.payload?.payment?.entity
     if (payment?.order_id && payment.id) {

@@ -29,6 +29,9 @@ export default function OrderList({ orders, admin = false, onStatusChange, busyO
             </p>
             <div className="order-card-footer">
               <strong>{formatPrice(order.totalPaise)}</strong>
+              {order.refundStatus === 'processed' && <span className="muted">Refund processed</span>}
+              {order.refundStatus === 'pending' && <span className="muted">Refund requested</span>}
+              {order.refundStatus === 'failed' && <span className="low-stock">Refund needs support</span>}
               {admin && next && (
                 <button
                   className="button button-secondary"

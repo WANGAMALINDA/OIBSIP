@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, formatPrice } from '../api.js'
+import { api } from '../api.js'
 import OrderList from './OrderList.jsx'
 
 export default function AdminDashboard({ token, onLogout }) {
@@ -91,7 +91,7 @@ export default function AdminDashboard({ token, onLogout }) {
                 {inventory.filter((item) => item.category === category).map((item) => (
                   <form
                     className="inventory-row"
-                    key={item.key}
+                    key={`${item.key}:${item.updatedAt}`}
                     onSubmit={(event) => {
                       event.preventDefault()
                       saveInventory(item, new FormData(event.currentTarget))

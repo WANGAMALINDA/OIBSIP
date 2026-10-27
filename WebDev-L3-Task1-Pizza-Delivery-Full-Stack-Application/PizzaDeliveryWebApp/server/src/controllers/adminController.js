@@ -20,14 +20,16 @@ export async function updateInventory(req, res) {
 
   const inventory = await Inventory.findOneAndUpdate(
     { key: req.params.key },
-    {
+    [{
       $set: {
         quantity,
         lowStockThreshold,
-        notificationSent: quantity >= lowStockThreshold,
+        notificationSent: {
+          $cond: [{ $gte: [quantity, lowStockThreshold] }, false, '$notificationSent'],
+        },
       },
-    },
-    { new: true, runValidators: true },
+    }],
+    { new: true },
   )
   if (!inventory) return res.status(404).json({ message: 'Inventory item not found.' })
   res.json({ inventory })

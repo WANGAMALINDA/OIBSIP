@@ -19,6 +19,8 @@ const orderSchema = new mongoose.Schema(
     },
     razorpayOrderId: { type: String, index: true, sparse: true },
     razorpayPaymentId: { type: String, index: true, sparse: true },
+    razorpayRefundId: String,
+    refundStatus: { type: String, enum: ['none', 'pending', 'processed', 'failed'], default: 'none' },
     reservationExpiresAt: { type: Date, index: true },
   },
   { timestamps: true },

@@ -8,9 +8,24 @@ import { razorpayWebhook } from './controllers/webhookController.js'
 
 const app = express()
 
+app.use((req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  })
+  next()
+})
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), razorpayWebhook)
 app.use(express.json({ limit: '1mb' }))
+app.use((req, res, next) => {
+  if (['POST', 'PATCH', 'PUT'].includes(req.method) && (!req.body || typeof req.body !== 'object' || Array.isArray(req.body))) {
+    return res.status(400).json({ message: 'A JSON object is required.' })
+  }
+  next()
+})
 app.use('/api/health', healthRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api', orderRoutes)

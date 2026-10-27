@@ -1,8 +1,14 @@
 import User from '../models/User.js'
 import { createToken, createOneTimeToken, hashOneTimeToken, hashPassword, verifyPassword } from '../config/security.js'
-import { sendEmail } from '../services/emailService.js'
+import { escapeHtml, sendEmail } from '../services/emailService.js'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function emailLink(parameter, token) {
+  const url = new URL(process.env.CLIENT_URL || 'http://localhost:5173')
+  url.searchParams.set(parameter, token)
+  return url.toString()
+}
 
 function publicUser(user) {
   return { id: user.id, name: user.name, email: user.email, role: user.role, emailVerified: user.emailVerified }
@@ -30,19 +36,27 @@ export async function register(req, res) {
   }
 
   const verificationToken = createOneTimeToken()
-  const user = await User.create({
-    name: name.trim(),
-    email: normalizedEmail,
-    passwordHash: await hashPassword(password),
-    emailVerificationTokenHash: hashOneTimeToken(verificationToken),
-    emailVerificationExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
-  })
+  let user
+  try {
+    user = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      passwordHash: await hashPassword(password),
+      emailVerificationTokenHash: hashOneTimeToken(verificationToken),
+      emailVerificationExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    })
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'An account with that email already exists.' })
+    }
+    throw error
+  }
 
-  const verificationUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}?verify=${verificationToken}`
+  const verificationUrl = emailLink('verify', verificationToken)
   await sendEmail({
     to: user.email,
     subject: 'Verify your pizza delivery account',
-    html: `<p>Hi ${user.name},</p><p><a href="${verificationUrl}">Verify your email address</a>. This link expires in one hour.</p>`,
+    html: `<p>Hi ${escapeHtml(user.name)},</p><p><a href="${verificationUrl}">Verify your email address</a>. This link expires in one hour.</p>`,
   })
   res.status(201).json({ message: 'Account created. Check your email to verify it before signing in.' })
 }
@@ -63,6 +77,25 @@ export async function verifyEmail(req, res) {
   user.emailVerificationExpiresAt = undefined
   await user.save()
   res.json({ message: 'Email verified. You can now sign in.' })
+}
+
+export async function resendVerification(req, res) {
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : ''
+  if (!emailPattern.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' })
+  const user = await User.findOne({ email, role: 'user', emailVerified: false })
+  if (user) {
+    const token = createOneTimeToken()
+    user.emailVerificationTokenHash = hashOneTimeToken(token)
+    user.emailVerificationExpiresAt = new Date(Date.now() + 60 * 60 * 1000)
+    await user.save()
+    const verificationUrl = emailLink('verify', token)
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify your pizza delivery account',
+      html: `<p><a href="${verificationUrl}">Verify your email address</a>. This link expires in one hour.</p>`,
+    })
+  }
+  res.json({ message: 'If that account needs verification, a new verification email has been sent.' })
 }
 
 async function login(req, res, requiredRole) {
@@ -102,7 +135,7 @@ export async function forgotPassword(req, res) {
     user.passwordResetTokenHash = hashOneTimeToken(token)
     user.passwordResetExpiresAt = new Date(Date.now() + 30 * 60 * 1000)
     await user.save()
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}?reset=${token}`
+    const resetUrl = emailLink('reset', token)
     await sendEmail({
       to: user.email,
       subject: 'Reset your pizza delivery password',

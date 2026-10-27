@@ -23,6 +23,18 @@ export async function createRazorpayOrder({ amount, receipt }) {
   return { id: result.id, keyId }
 }
 
+export async function getRazorpayPayment(paymentId) {
+  const { keyId, secret } = getCredentials()
+  const response = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
+    },
+  })
+  const payment = await response.json()
+  if (!response.ok) throw new Error(payment.error?.description || 'Could not verify Razorpay payment.')
+  return payment
+}
+
 export function verifyCheckoutSignature(orderId, paymentId, signature) {
   const { secret } = getCredentials()
   const expected = createHmac('sha256', secret)

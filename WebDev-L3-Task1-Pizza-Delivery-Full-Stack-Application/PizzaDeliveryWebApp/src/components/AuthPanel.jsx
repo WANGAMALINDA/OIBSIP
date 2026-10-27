@@ -1,0 +1,138 @@
+import { useState } from 'react'
+import { api } from '../api.js'
+
+export default function AuthPanel({ onLogin, notice, setNotice }) {
+  const [mode, setMode] = useState('login')
+  const [adminMode, setAdminMode] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event) {
+    event.preventDefault()
+    setNotice('')
+    setBusy(true)
+    try {
+      if (mode === 'forgot') {
+        const result = await api('/auth/forgot-password', {
+          method: 'POST',
+          body: JSON.stringify({ email: form.email }),
+        })
+        setNotice(result.message)
+      } else {
+        const path = mode === 'register'
+          ? '/auth/register'
+          : adminMode
+            ? '/auth/admin/login'
+            : '/auth/login'
+        const result = await api(path, {
+          method: 'POST',
+          body: JSON.stringify(form),
+        })
+        if (mode === 'register') {
+          setNotice(result.message)
+          setMode('login')
+        } else {
+          onLogin(result)
+        }
+      }
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const formTitle = mode === 'register'
+    ? 'Create your customer account'
+    : mode === 'forgot'
+      ? 'Reset your password'
+      : adminMode
+        ? 'Administrator sign in'
+        : 'Sign in to your account'
+
+  return (
+    <section className="auth-card">
+      <p className="eyebrow">CUSTOMER ORDERS AND ADMIN INVENTORY</p>
+      <h1>Pizza, made your way.</h1>
+      <p className="muted">Build a pizza, order securely, and follow it from kitchen to delivery.</p>
+      <div className="auth-switch" role="group" aria-label="Account type">
+        <button
+          className={!adminMode ? 'selected' : ''}
+          type="button"
+          onClick={() => { setAdminMode(false); setMode('login'); setNotice('') }}
+        >
+          Customer
+        </button>
+        <button
+          className={adminMode ? 'selected' : ''}
+          type="button"
+          onClick={() => { setAdminMode(true); setMode('login'); setNotice('') }}
+        >
+          Admin
+        </button>
+      </div>
+      <h2>{formTitle}</h2>
+      <form className="form-stack" onSubmit={submit}>
+        {mode === 'register' && (
+          <label>
+            Name
+            <input
+              autoComplete="name"
+              maxLength={100}
+              minLength={2}
+              required
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+            />
+          </label>
+        )}
+        <label>
+          Email
+          <input
+            autoComplete="email"
+            type="email"
+            required
+            value={form.email}
+            onChange={(event) => setForm({ ...form, email: event.target.value })}
+          />
+        </label>
+        {mode !== 'forgot' && (
+          <label>
+            Password
+            <input
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+              minLength={mode === 'register' ? 10 : undefined}
+              type="password"
+              required
+              value={form.password}
+              onChange={(event) => setForm({ ...form, password: event.target.value })}
+            />
+          </label>
+        )}
+        <button className="button button-primary" disabled={busy} type="submit">
+          {busy ? 'Please wait…' : mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send reset link' : 'Sign in'}
+        </button>
+      </form>
+      {notice && <p className="notice" role="status">{notice}</p>}
+      {!adminMode && (
+        <div className="auth-links">
+          {mode !== 'register' && (
+            <button type="button" className="text-button" onClick={() => { setMode('register'); setNotice('') }}>
+              Create an account
+            </button>
+          )}
+          {mode !== 'forgot' && mode !== 'register' && (
+            <button type="button" className="text-button" onClick={() => { setMode('forgot'); setNotice('') }}>
+              Forgot password?
+            </button>
+          )}
+          {mode !== 'login' && (
+            <button type="button" className="text-button" onClick={() => { setMode('login'); setNotice('') }}>
+              Back to sign in
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}

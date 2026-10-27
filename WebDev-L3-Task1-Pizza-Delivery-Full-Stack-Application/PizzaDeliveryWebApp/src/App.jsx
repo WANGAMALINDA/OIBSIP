@@ -1,122 +1,132 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useEffect, useState } from 'react'
+import { api } from './api.js'
+import AdminDashboard from './components/AdminDashboard.jsx'
+import AuthPanel from './components/AuthPanel.jsx'
+import UserDashboard from './components/UserDashboard.jsx'
 import './App.css'
 
+function readSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem('pizza-session') || 'null')
+    return session?.token && session?.user ? session : null
+  } catch {
+    return null
+  }
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [session, setSession] = useState(readSession)
+  const [notice, setNotice] = useState('')
+  const [resetToken, setResetToken] = useState(() => new URLSearchParams(location.search).get('reset'))
+  const [resetPassword, setResetPassword] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+  useEffect(() => {
+    const query = new URLSearchParams(location.search)
+    const verificationToken = query.get('verify')
+    if (verificationToken) {
+      api('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token: verificationToken }),
+      })
+        .then((result) => setNotice(result.message))
+        .catch((error) => setNotice(error.message))
+        .finally(() => {
+          query.delete('verify')
+          const suffix = query.toString()
+          history.replaceState(null, '', `${location.pathname}${suffix ? `?${suffix}` : ''}`)
+        })
+    }
 
-      <div className="ticks"></div>
+    const saved = readSession()
+    if (saved) {
+      api('/auth/me', { token: saved.token })
+        .then((result) => {
+          const updated = { token: saved.token, user: result.user }
+          localStorage.setItem('pizza-session', JSON.stringify(updated))
+          setSession(updated)
+        })
+        .catch(() => {
+          localStorage.removeItem('pizza-session')
+          setSession(null)
+        })
+    }
+  }, [])
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+  function handleLogin(result) {
+    const nextSession = { token: result.token, user: result.user }
+    localStorage.setItem('pizza-session', JSON.stringify(nextSession))
+    setSession(nextSession)
+    setNotice('')
+  }
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+  function logout() {
+    localStorage.removeItem('pizza-session')
+    setSession(null)
+    setNotice('')
+  }
+
+  async function submitPasswordReset(event) {
+    event.preventDefault()
+    setBusy(true)
+    setNotice('')
+    try {
+      const result = await api('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token: resetToken, password: resetPassword }),
+      })
+      setNotice(result.message)
+      setResetToken(null)
+      setResetPassword('')
+      history.replaceState(null, '', location.pathname)
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (resetToken) {
+    return (
+      <div className="app-shell auth-shell">
+        <section className="auth-card">
+          <p className="eyebrow">ACCOUNT SECURITY</p>
+          <h1>Choose a new password</h1>
+          <form className="form-stack" onSubmit={submitPasswordReset}>
+            <label>
+              New password
+              <input
+                autoComplete="new-password"
+                minLength={10}
+                required
+                type="password"
+                value={resetPassword}
+                onChange={(event) => setResetPassword(event.target.value)}
+              />
+            </label>
+            <button className="button button-primary" disabled={busy} type="submit">
+              {busy ? 'Saving…' : 'Reset password'}
+            </button>
+          </form>
+          {notice && <p className="notice" role="status">{notice}</p>}
+        </section>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="app-shell auth-shell">
+        <AuthPanel onLogin={handleLogin} notice={notice} setNotice={setNotice} />
+      </div>
+    )
+  }
+
+  if (session.user.role === 'admin') {
+    return <AdminDashboard onLogout={logout} token={session.token} />
+  }
+
+  return <UserDashboard onLogout={logout} token={session.token} user={session.user} />
 }
 
 export default App

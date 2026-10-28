@@ -6,6 +6,8 @@ A React and Vite customer app with an Express API, MongoDB inventory and orders,
 
 The GitHub Actions workflow at the repository root builds this frontend and deploys it to GitHub Pages whenever changes are pushed to `main` (or when run manually). In the repository settings, open **Settings → Pages** and set the build and deployment source to **GitHub Actions**.
 
+After a successful deployment, the frontend is available at [https://wangamalinda.github.io/OIBSIP/](https://wangamalinda.github.io/OIBSIP/).
+
 The workflow builds only the static frontend. GitHub Pages cannot run the Express API or MongoDB. To enable sign-in, ordering, and admin features, deploy the API separately and set the repository Actions variable `VITE_API_URL` to its public base URL (for example, `https://api.example.com`). Without it, API requests target the Pages site and those features will not work.
 
 ## Requirements

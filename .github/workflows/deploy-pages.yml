@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp/**'
+      - 'WebDev-L3-Task1-PizzaDelivery/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
@@ -29,12 +29,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp/package-lock.json
+          cache-dependency-path: WebDev-L3-Task1-PizzaDelivery/package-lock.json
       - name: Install dependencies
-        working-directory: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp
+        working-directory: WebDev-L3-Task1-PizzaDelivery
         run: npm ci
       - name: Build frontend
-        working-directory: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp
+        working-directory: WebDev-L3-Task1-PizzaDelivery
         run: npm run build
         env:
           VITE_BASE_PATH: /OIBSIP/
@@ -42,7 +42,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: WebDev-L3-Task1-Pizza-Delivery-Full-Stack-Application/PizzaDeliveryWebApp/dist
+          path: WebDev-L3-Task1-PizzaDelivery/dist
 
   deploy:
     environment:

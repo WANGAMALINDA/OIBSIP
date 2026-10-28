@@ -47,7 +47,7 @@ node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'
 
 ## Install and start
 
-From `PizzaDeliveryWebApp` in PowerShell:
+From `WebDev-L3-Task1-PizzaDelivery` in PowerShell:
 
 ```powershell
 npm.cmd install
@@ -74,7 +74,7 @@ Starter inventory is created with 100 units per menu item and a 20-unit alert th
 ## Project structure
 
 ```text
-PizzaDeliveryWebApp/
+WebDev-L3-Task1-PizzaDelivery/
 ├── public/                     # Static assets
 ├── src/
 │   ├── components/             # Customer builder, order list, admin and auth views

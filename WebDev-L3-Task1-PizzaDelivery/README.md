@@ -65,6 +65,7 @@ When `server/.env` already exists, do not repeat the copy command; add only miss
 - Menu prices and new Razorpay payments use US dollars (USD), stored in cents. Existing historical INR and ZAR orders remain labelled in their original currencies. Prices are displayed in the same currency customers are charged; no exchange-rate conversion is applied.
 - Server-calculated totals and live stock reservation before payment.
 - Razorpay checkout; order confirmation requires a valid checkout signature and a captured payment verified against Razorpay. Customers can resume payment for a pending order until its 15-minute stock reservation expires. Failed or expired reservations return stock; late captured payments request a refund.
+- Customers can remove cancelled orders from their order list. Orders needing refund attention cannot be hidden, and payment records are retained for reconciliation.
 - Customer order tracking and admin order updates, refreshed by polling.
 - Admin inventory adjustment and configurable low-stock thresholds.
 - Scheduled low-stock email alerts; an alert is sent again after stock has been replenished above its threshold.

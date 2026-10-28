@@ -248,8 +248,43 @@ export async function failWebhookPayment(razorpayOrderId) {
 }
 
 export async function getMyOrders(req, res) {
-  const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(50)
+  const orders = await Order.find({
+    user: req.user._id,
+    hiddenByUserAt: { $exists: false },
+  }).sort({ createdAt: -1 }).limit(50)
   res.json({ orders: orders.map(serializeOrder) })
+}
+
+export async function hideCancelledOrder(req, res) {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ message: 'Order id is invalid.' })
+  }
+
+  const order = await Order.findOneAndUpdate(
+    {
+      _id: req.params.id,
+      user: req.user._id,
+      status: 'cancelled',
+      refundStatus: { $nin: ['pending', 'failed'] },
+      hiddenByUserAt: { $exists: false },
+    },
+    { $set: { hiddenByUserAt: new Date() } },
+    { new: true, projection: { _id: 1 } },
+  )
+
+  if (!order) {
+    const existingOrder = await Order.findOne({ _id: req.params.id, user: req.user._id })
+    if (!existingOrder) return res.status(404).json({ message: 'Order not found.' })
+    if (existingOrder.status !== 'cancelled') {
+      return res.status(409).json({ message: 'Only cancelled orders can be removed.' })
+    }
+    if (['pending', 'failed'].includes(existingOrder.refundStatus)) {
+      return res.status(409).json({ message: 'This order cannot be removed while its refund needs attention.' })
+    }
+    return res.status(409).json({ message: 'This cancelled order has already been removed.' })
+  }
+
+  res.json({ message: 'Cancelled order removed from your list.' })
 }
 
 export async function getAllOrders(req, res) {

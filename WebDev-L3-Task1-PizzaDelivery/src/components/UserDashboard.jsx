@@ -50,6 +50,26 @@ export default function UserDashboard({ user, token, onLogout }) {
     }
   }
 
+  async function removeCancelledOrder(order) {
+    if (!window.confirm('Remove this cancelled order from your order list?')) return
+
+    setBusyOrder(order._id)
+    setNotice('')
+    try {
+      const result = await api(`/orders/mine/${order._id}`, {
+        token,
+        method: 'DELETE',
+      })
+      setOrders((currentOrders) => currentOrders.filter((item) => item._id !== order._id))
+      setNotice(result.message)
+    } catch (error) {
+      setNotice(error.message)
+      void refreshOrders()
+    } finally {
+      setBusyOrder(null)
+    }
+  }
+
   useEffect(() => {
     const initialLoad = window.setTimeout(refreshOrders, 0)
     const timer = window.setInterval(refreshOrders, 5000)
@@ -86,7 +106,12 @@ export default function UserDashboard({ user, token, onLogout }) {
           </div>
           <span className="muted">Updates every 5 seconds</span>
         </div>
-        <OrderList busyOrder={busyOrder} onResumePayment={resumePayment} orders={orders} />
+        <OrderList
+          busyOrder={busyOrder}
+          onRemoveCancelled={removeCancelledOrder}
+          onResumePayment={resumePayment}
+          orders={orders}
+        />
       </section>
     </main>
   )

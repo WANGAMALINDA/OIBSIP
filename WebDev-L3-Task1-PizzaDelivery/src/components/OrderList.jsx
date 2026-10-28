@@ -1,6 +1,13 @@
 import { formatPrice, statusLabels } from '../api.js'
 
-export default function OrderList({ orders, admin = false, onStatusChange, onResumePayment, busyOrder }) {
+export default function OrderList({
+  orders,
+  admin = false,
+  onStatusChange,
+  onResumePayment,
+  onRemoveCancelled,
+  busyOrder,
+}) {
   if (!orders.length) {
     return <p className="empty-state">No orders yet. Your paid orders will appear here.</p>
   }
@@ -54,6 +61,18 @@ export default function OrderList({ orders, admin = false, onStatusChange, onRes
                   {busyOrder === order._id ? 'Opening checkout…' : 'Continue payment'}
                 </button>
               )}
+              {!admin &&
+                order.status === 'cancelled' &&
+                !['pending', 'failed'].includes(order.refundStatus) && (
+                  <button
+                    className="button button-secondary"
+                    disabled={busyOrder === order._id}
+                    type="button"
+                    onClick={() => onRemoveCancelled(order)}
+                  >
+                    {busyOrder === order._id ? 'Removing…' : 'Remove order'}
+                  </button>
+                )}
             </div>
           </article>
         )

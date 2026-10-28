@@ -13,6 +13,7 @@ const orderSchema = new mongoose.Schema(
     currency: { type: String, enum: ['USD', 'INR', 'ZAR'] },
     totalMinorUnits: { type: Number, min: 1 },
     totalPaise: { type: Number, min: 1 },
+    hiddenByUserAt: Date,
     status: {
       type: String,
       enum: ['payment_pending', 'received', 'in_kitchen', 'out_for_delivery', 'cancelled'],

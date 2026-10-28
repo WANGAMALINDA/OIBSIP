@@ -36,6 +36,7 @@ app.use((req, res) => {
 })
 
 app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error)
   console.error(error)
   res.status(error.status || 500).json({
     message: error.status ? error.message : 'An unexpected server error occurred.',

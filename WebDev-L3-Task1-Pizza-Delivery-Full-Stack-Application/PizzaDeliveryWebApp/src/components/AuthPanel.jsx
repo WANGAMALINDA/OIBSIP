@@ -5,6 +5,7 @@ export default function AuthPanel({ onLogin, notice, setNotice }) {
   const [mode, setMode] = useState('login')
   const [adminMode, setAdminMode] = useState(false)
   const [needsVerification, setNeedsVerification] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [busy, setBusy] = useState(false)
 
@@ -116,14 +117,25 @@ export default function AuthPanel({ onLogin, notice, setNotice }) {
         {mode !== 'forgot' && (
           <label>
             Password
-            <input
-              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-              minLength={mode === 'register' ? 10 : undefined}
-              type="password"
-              required
-              value={form.password}
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
-            />
+            <span className="password-input-wrap">
+              <input
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                minLength={mode === 'register' ? 10 : undefined}
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={form.password}
+                onChange={(event) => setForm({ ...form, password: event.target.value })}
+              />
+              <button
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="password-toggle"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </span>
           </label>
         )}
         <button className="button button-primary" disabled={busy} type="submit">

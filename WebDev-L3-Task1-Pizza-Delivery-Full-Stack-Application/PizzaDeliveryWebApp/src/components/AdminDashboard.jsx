@@ -20,9 +20,12 @@ export default function AdminDashboard({ token, onLogout }) {
   }, [token])
 
   useEffect(() => {
-    refresh(true)
+    const initialLoad = window.setTimeout(() => refresh(true), 0)
     const timer = window.setInterval(() => refresh(), 10000)
-    return () => window.clearInterval(timer)
+    return () => {
+      window.clearTimeout(initialLoad)
+      window.clearInterval(timer)
+    }
   }, [refresh])
 
   async function saveInventory(item, form) {

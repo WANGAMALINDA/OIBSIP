@@ -3,57 +3,85 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 function getCredentials() {
   const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env
   if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-    throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.')
+    const error = new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env.')
+    error.status = 503
+    throw error
   }
   if (!RAZORPAY_KEY_ID.startsWith('rzp_test_')) {
-    throw new Error('Only Razorpay test-mode keys are accepted by this project.')
+    const error = new Error('Only a Razorpay test key (starting with rzp_test_) is accepted.')
+    error.status = 503
+    throw error
   }
   return { keyId: RAZORPAY_KEY_ID, secret: RAZORPAY_KEY_SECRET }
 }
 
+export function getRazorpayKeyId() {
+  return getCredentials().keyId
+}
+
 export async function createRazorpayOrder({ amount, receipt }) {
   const { keyId, secret } = getCredentials()
-  const response = await fetch('https://api.razorpay.com/v1/orders', {
+  const result = await razorpayRequest('/orders', {
     method: 'POST',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ amount, currency: 'INR', receipt, notes: { app: 'pizza-delivery' } }),
-  })
-  const result = await response.json()
-  if (!response.ok) throw new Error(result.error?.description || 'Razorpay order creation failed.')
+    body: JSON.stringify({ amount, currency: 'USD', receipt, notes: { app: 'pizza-delivery' } }),
+  }, keyId, secret)
   return { id: result.id, keyId }
 }
 
 export async function getRazorpayPayment(paymentId) {
   const { keyId, secret } = getCredentials()
-  const response = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`, {
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
-    },
-  })
-  const payment = await response.json()
-  if (!response.ok) throw new Error(payment.error?.description || 'Could not verify Razorpay payment.')
-  return payment
+  return razorpayRequest(`/payments/${encodeURIComponent(paymentId)}`, {}, keyId, secret)
 }
 
 export async function refundRazorpayPayment(paymentId) {
   const { keyId, secret } = getCredentials()
-  const response = await fetch(
-    `https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`,
+  const refund = await razorpayRequest(
+    `/payments/${encodeURIComponent(paymentId)}/refund`,
     {
       method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ notes: { reason: 'Order reservation expired' } }),
     },
+    keyId,
+    secret,
   )
-  const refund = await response.json()
-  if (!response.ok) throw new Error(refund.error?.description || 'Razorpay refund request failed.')
   return refund.id
+}
+
+async function razorpayRequest(path, options, keyId, secret) {
+  let response
+  try {
+    response = await fetch(`https://api.razorpay.com/v1${path}`, {
+      ...options,
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...options.headers,
+      },
+    })
+  } catch {
+    const error = new Error('Could not reach Razorpay. Check the server network connection and try again.')
+    error.status = 503
+    throw error
+  }
+
+  let result
+  try {
+    result = await response.json()
+  } catch {
+    const error = new Error(`Razorpay returned an invalid response (HTTP ${response.status}).`)
+    error.status = 502
+    throw error
+  }
+
+  if (!response.ok) {
+    const message = response.status === 401
+      ? 'Razorpay rejected the test credentials. Check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in server/.env.'
+      : result.error?.description || `Razorpay request failed with HTTP ${response.status}.`
+    const error = new Error(message)
+    error.status = 502
+    throw error
+  }
+  return result
 }
 
 export function verifyCheckoutSignature(orderId, paymentId, signature) {

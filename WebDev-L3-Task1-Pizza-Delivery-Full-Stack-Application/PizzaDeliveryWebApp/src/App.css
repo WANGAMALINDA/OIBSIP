@@ -70,6 +70,29 @@
   gap: 16px;
 }
 
+.password-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.password-input-wrap input {
+  width: 100%;
+  padding-right: 64px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  padding: 4px;
+  border: 0;
+  color: var(--accent-dark);
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transform: translateY(-50%);
+}
+
 .button {
   display: inline-flex;
   min-height: 42px;

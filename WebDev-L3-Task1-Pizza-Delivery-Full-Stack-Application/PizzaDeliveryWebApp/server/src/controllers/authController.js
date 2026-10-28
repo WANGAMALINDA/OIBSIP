@@ -118,7 +118,31 @@ export async function userLogin(req, res) {
 }
 
 export async function adminLogin(req, res) {
-  await login(req, res, 'admin')
+  const adminEmail = process.env.ADMIN_EMAIL?.trim()
+  const adminPassword = process.env.ADMIN_PASSWORD
+  if (!adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail) || !adminPassword || adminPassword.length < 12) {
+    return res.status(503).json({
+      message: 'Admin sign-in is not configured. Set a valid ADMIN_EMAIL and an ADMIN_PASSWORD of at least 12 characters in server/.env.',
+    })
+  }
+  const { email, password } = req.body
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    return res.status(400).json({ message: 'Email and password are required.' })
+  }
+
+  const admin = await User.findOne({ email: adminEmail }).select('+passwordHash')
+  if (
+    !admin ||
+    admin.role !== 'admin' ||
+    email.trim().toLowerCase() !== adminEmail ||
+    !(await verifyPassword(password, admin.passwordHash))
+  ) {
+    return res.status(401).json({
+      message: 'Admin sign-in failed. Use the ADMIN_EMAIL and ADMIN_PASSWORD from server/.env. Restart the API after changing them.',
+    })
+  }
+
+  res.json(createLoginResponse(admin))
 }
 
 export async function currentUser(req, res) {

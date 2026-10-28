@@ -47,5 +47,16 @@ export async function getAdminDashboard(req, res) {
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
   ])
-  res.json({ inventory, orders, counts })
+  res.json({
+    inventory,
+    orders: orders.map((order) => {
+      const result = order.toObject()
+      if (!result.currency && result.totalPaise !== undefined) {
+        result.currency = 'INR'
+        result.totalMinorUnits = result.totalPaise
+      }
+      return result
+    }),
+    counts,
+  })
 }

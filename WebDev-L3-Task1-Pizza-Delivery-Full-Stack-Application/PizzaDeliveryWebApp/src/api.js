@@ -7,18 +7,52 @@ export async function api(path, { token, ...options } = {}) {
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
-  const response = await fetch(`${API_URL}/api${path}`, { ...options, headers })
-  const result = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(result.message || 'The request could not be completed.')
+  let response
+  try {
+    response = await fetch(`${API_URL}/api${path}`, { ...options, headers })
+  } catch {
+    throw new Error('Cannot reach the API. Start the backend and check that MongoDB is connected.')
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  let result = {}
+  if (contentType.includes('application/json')) {
+    try {
+      result = await response.json()
+    } catch {
+      throw new Error(`The API returned an invalid response (HTTP ${response.status}). Check the backend logs.`)
+    }
+  }
+
+  if (!response.ok) {
+    if (response.status === 502 && !contentType.includes('application/json')) {
+      throw new Error('The API server is not reachable. Start it with "npm.cmd run server:dev" and check its terminal for startup errors.')
+    }
+    const message = typeof result?.message === 'string' && result.message.trim()
+      ? result.message
+      : `The API returned HTTP ${response.status} for ${path}. Check the backend logs.`
+    throw new Error(message)
+  }
+
+  if (!contentType.includes('application/json')) {
+    throw new Error(`The API returned an unexpected response (HTTP ${response.status}). Check the backend URL and logs.`)
+  }
+
   return result
 }
 
-export function formatPrice(paise) {
-  return new Intl.NumberFormat('en-IN', {
+export function formatPrice(minorUnits, currency = 'USD') {
+  const locale = {
+    USD: 'en-US',
+    INR: 'en-IN',
+    ZAR: 'en-ZA',
+  }[currency] || 'en-US'
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(paise / 100)
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(minorUnits / 100)
 }
 
 export const statusLabels = {

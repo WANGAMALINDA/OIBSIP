@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
+import { openRazorpayCheckout } from '../paymentCheckout.js'
 import OrderList from './OrderList.jsx'
 import PizzaBuilder from './PizzaBuilder.jsx'
 
 export default function UserDashboard({ user, token, onLogout }) {
   const [orders, setOrders] = useState([])
   const [notice, setNotice] = useState('')
+  const [busyOrder, setBusyOrder] = useState(null)
 
   const refreshOrders = useCallback(async () => {
     try {
@@ -16,10 +18,45 @@ export default function UserDashboard({ user, token, onLogout }) {
     }
   }, [token])
 
+  async function resumePayment(order) {
+    setBusyOrder(order._id)
+    setNotice('')
+    try {
+      const paymentOrder = await api(`/payments/orders/${order._id}/resume`, {
+        token,
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      await openRazorpayCheckout({
+        order: paymentOrder,
+        token,
+        description: `${order.items.base} pizza`,
+        onSuccess: (result) => {
+          setNotice(result.message)
+          void refreshOrders()
+          setBusyOrder(null)
+        },
+        onFailure: (error) => {
+          setNotice(error.message)
+          setBusyOrder(null)
+        },
+        onDismiss: () => setBusyOrder(null),
+      })
+      setNotice(`Continue payment for order ${order._id.slice(-8).toUpperCase()}.`)
+    } catch (error) {
+      setNotice(error.message)
+      setBusyOrder(null)
+      void refreshOrders()
+    }
+  }
+
   useEffect(() => {
-    refreshOrders()
+    const initialLoad = window.setTimeout(refreshOrders, 0)
     const timer = window.setInterval(refreshOrders, 5000)
-    return () => window.clearInterval(timer)
+    return () => {
+      window.clearTimeout(initialLoad)
+      window.clearInterval(timer)
+    }
   }, [refreshOrders])
 
   return (
@@ -49,7 +86,7 @@ export default function UserDashboard({ user, token, onLogout }) {
           </div>
           <span className="muted">Updates every 5 seconds</span>
         </div>
-        <OrderList orders={orders} />
+        <OrderList busyOrder={busyOrder} onResumePayment={resumePayment} orders={orders} />
       </section>
     </main>
   )

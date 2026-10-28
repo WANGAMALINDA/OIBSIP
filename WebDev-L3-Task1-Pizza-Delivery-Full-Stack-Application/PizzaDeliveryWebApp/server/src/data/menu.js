@@ -1,31 +1,31 @@
 export const menu = {
   bases: [
-    { name: 'Classic', pricePaise: 25000 },
-    { name: 'Thin Crust', pricePaise: 27000 },
-    { name: 'Whole Wheat', pricePaise: 29000 },
-    { name: 'Gluten Free', pricePaise: 32000 },
-    { name: 'Stuffed Crust', pricePaise: 35000 },
+    { name: 'Classic', priceMinorUnits: 25000 },
+    { name: 'Thin Crust', priceMinorUnits: 27000 },
+    { name: 'Whole Wheat', priceMinorUnits: 29000 },
+    { name: 'Gluten Free', priceMinorUnits: 32000 },
+    { name: 'Stuffed Crust', priceMinorUnits: 35000 },
   ],
   sauces: [
-    { name: 'Classic Tomato', pricePaise: 0 },
-    { name: 'Spicy Marinara', pricePaise: 1500 },
-    { name: 'Pesto', pricePaise: 3500 },
-    { name: 'Barbecue', pricePaise: 2000 },
-    { name: 'White Garlic', pricePaise: 2500 },
+    { name: 'Classic Tomato', priceMinorUnits: 0 },
+    { name: 'Spicy Marinara', priceMinorUnits: 1500 },
+    { name: 'Pesto', priceMinorUnits: 3500 },
+    { name: 'Barbecue', priceMinorUnits: 2000 },
+    { name: 'White Garlic', priceMinorUnits: 2500 },
   ],
   cheeses: [
-    { name: 'Mozzarella', pricePaise: 5000 },
-    { name: 'Vegan Cheese', pricePaise: 6500 },
-    { name: 'Cheddar', pricePaise: 5500 },
+    { name: 'Mozzarella', priceMinorUnits: 5000 },
+    { name: 'Vegan Cheese', priceMinorUnits: 6500 },
+    { name: 'Cheddar', priceMinorUnits: 5500 },
   ],
   vegetables: [
-    { name: 'Mushrooms', pricePaise: 1500 },
-    { name: 'Bell Peppers', pricePaise: 1200 },
-    { name: 'Red Onions', pricePaise: 1000 },
-    { name: 'Black Olives', pricePaise: 1500 },
-    { name: 'Spinach', pricePaise: 1200 },
-    { name: 'Jalapeños', pricePaise: 1200 },
-    { name: 'Sweet Corn', pricePaise: 1000 },
+    { name: 'Mushrooms', priceMinorUnits: 1500 },
+    { name: 'Bell Peppers', priceMinorUnits: 1200 },
+    { name: 'Red Onions', priceMinorUnits: 1000 },
+    { name: 'Black Olives', priceMinorUnits: 1500 },
+    { name: 'Spinach', priceMinorUnits: 1200 },
+    { name: 'Jalapeños', priceMinorUnits: 1200 },
+    { name: 'Sweet Corn', priceMinorUnits: 1000 },
   ],
 }
 
@@ -68,15 +68,15 @@ export function getOrderItems(input) {
     throw error
   }
 
-  const totalPaise =
-    base.pricePaise +
-    sauce.pricePaise +
-    cheese.pricePaise +
-    vegetableOptions.reduce((sum, option) => sum + option.pricePaise, 0)
+  const totalMinorUnits =
+    base.priceMinorUnits +
+    sauce.priceMinorUnits +
+    cheese.priceMinorUnits +
+    vegetableOptions.reduce((sum, option) => sum + option.priceMinorUnits, 0)
 
   return {
     items: { base: base.name, sauce: sauce.name, cheese: cheese.name, vegetables: uniqueVegetables },
-    totalPaise,
+    totalMinorUnits,
     inventoryItems: [
       { key: `base:${base.name}`, quantity: 1 },
       { key: `sauce:${sauce.name}`, quantity: 1 },

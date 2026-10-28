@@ -4,6 +4,7 @@ import {
   getAllOrders,
   getMenu,
   getMyOrders,
+  resumeOrderPayment,
   updateOrderStatus,
   verifyOrderPayment,
 } from '../controllers/orderController.js'
@@ -13,6 +14,7 @@ const router = Router()
 
 router.get('/menu', getMenu)
 router.post('/payments/order', requireAuth, requireVerifiedEmail, createOrderPayment)
+router.post('/payments/orders/:id/resume', requireAuth, resumeOrderPayment)
 router.post('/payments/verify', requireAuth, verifyOrderPayment)
 router.get('/orders/mine', requireAuth, getMyOrders)
 router.get('/admin/orders', requireAuth, requireAdmin, getAllOrders)

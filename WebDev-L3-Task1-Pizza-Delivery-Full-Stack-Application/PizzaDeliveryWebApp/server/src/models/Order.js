@@ -10,7 +10,9 @@ const orderSchema = new mongoose.Schema(
       vegetables: { type: [String], default: [] },
     },
     inventoryItems: [{ key: String, quantity: Number }],
-    totalPaise: { type: Number, required: true, min: 1 },
+    currency: { type: String, enum: ['USD', 'INR', 'ZAR'] },
+    totalMinorUnits: { type: Number, min: 1 },
+    totalPaise: { type: Number, min: 1 },
     status: {
       type: String,
       enum: ['payment_pending', 'received', 'in_kitchen', 'out_for_delivery', 'cancelled'],

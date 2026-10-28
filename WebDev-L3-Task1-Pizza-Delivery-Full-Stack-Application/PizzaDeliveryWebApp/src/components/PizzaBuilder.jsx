@@ -1,18 +1,14 @@
 import { useState } from 'react'
 import { api, formatPrice } from '../api.js'
+import { openRazorpayCheckout } from '../paymentCheckout.js'
 
 const steps = ['Choose a base', 'Choose a sauce', 'Choose a cheese', 'Add vegetables']
 const fields = ['base', 'sauce', 'cheese', 'vegetables']
-
-function loadRazorpay() {
-  if (window.Razorpay) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = resolve
-    script.onerror = () => reject(new Error('Could not load Razorpay checkout. Check your connection and try again.'))
-    document.body.appendChild(script)
-  })
+const menuGroups = {
+  base: 'bases',
+  sauce: 'sauces',
+  cheese: 'cheeses',
+  vegetables: 'vegetables',
 }
 
 export default function PizzaBuilder({ token, onOrder, setNotice }) {
@@ -24,15 +20,20 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
   async function ensureMenu() {
     if (menu) return menu
     const result = await api('/menu')
+    const optionGroups = result.menu
+    if (!optionGroups || Object.values(menuGroups).some((group) => !Array.isArray(optionGroups[group]))) {
+      throw new Error('The menu response is incomplete. Check the backend menu endpoint.')
+    }
+
     const first = {
-      base: result.menu.bases[0]?.name || '',
-      sauce: result.menu.sauces[0]?.name || '',
-      cheese: result.menu.cheeses[0]?.name || '',
+      base: optionGroups.bases[0]?.name || '',
+      sauce: optionGroups.sauces[0]?.name || '',
+      cheese: optionGroups.cheeses[0]?.name || '',
       vegetables: [],
     }
-    setMenu(result.menu)
+    setMenu(optionGroups)
     setItems(first)
-    return result.menu
+    return optionGroups
   }
 
   async function beginOrder() {
@@ -45,46 +46,22 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
         method: 'POST',
         body: JSON.stringify(items),
       })
-      await loadRazorpay()
-      const checkout = new window.Razorpay({
-        key: order.razorpayKeyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Pizza Delivery',
+      await openRazorpayCheckout({
+        order: { ...order, currency: order.currency || 'USD' },
+        token,
         description: `${items.base} pizza`,
-        order_id: order.razorpayOrderId,
-        prefill: { name: '', email: '' },
-        theme: { color: '#b63e24' },
-        handler: async (payment) => {
-          try {
-            const result = await api('/payments/verify', {
-              token,
-              method: 'POST',
-              body: JSON.stringify({
-                orderId: order.orderId,
-                razorpayOrderId: payment.razorpay_order_id,
-                razorpayPaymentId: payment.razorpay_payment_id,
-                razorpaySignature: payment.razorpay_signature,
-              }),
-            })
-            setNotice(result.message)
-            onOrder()
-          } catch (error) {
-            setNotice(error.message)
-          } finally {
-            setBusy(false)
-          }
+        onSuccess: (result) => {
+          setNotice(result.message)
+          onOrder()
+          setBusy(false)
         },
-        modal: {
-          ondismiss: () => setBusy(false),
+        onFailure: (error) => {
+          setNotice(error.message)
+          setBusy(false)
         },
+        onDismiss: () => setBusy(false),
       })
-      checkout.on('payment.failed', (event) => {
-        setNotice(event.error?.description || 'Payment was not completed. Your reserved stock will be released automatically.')
-        setBusy(false)
-      })
-      checkout.open()
-      setNotice(`Order total: ${formatPrice(order.amount)}. Complete the Razorpay checkout to confirm.`)
+      setNotice(`Order total: ${formatPrice(order.amount, order.currency || 'USD')}. Complete the Razorpay checkout to confirm.`)
     } catch (error) {
       setNotice(error.message)
       setBusy(false)
@@ -116,10 +93,10 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
   }
 
   const activeField = fields[step]
-  const options = menu[activeField]
+  const options = menu[menuGroups[activeField]] || []
   const priceOf = (group, selected) =>
-    menu[group].find((item) => item.name === selected)?.pricePaise || 0
-  const totalPaise =
+    menu[group].find((item) => item.name === selected)?.priceMinorUnits || 0
+  const totalMinorUnits =
     priceOf('bases', items.base) +
     priceOf('sauces', items.sauce) +
     priceOf('cheeses', items.cheese) +
@@ -149,7 +126,7 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
           <h2>{steps[step]}</h2>
           <p className="muted">Step {step + 1} of {steps.length}</p>
         </div>
-        <strong className="price">{formatPrice(totalPaise)}</strong>
+        <strong className="price">{formatPrice(totalMinorUnits)}</strong>
       </div>
       <div className="step-track" aria-label={`Step ${step + 1} of ${steps.length}`}>
         {steps.map((label, index) => (
@@ -183,8 +160,8 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
                 <small>
                   {!option.available
                     ? 'Out of stock'
-                    : option.pricePaise
-                      ? `+${formatPrice(option.pricePaise)}`
+                    : option.priceMinorUnits
+                      ? `+${formatPrice(option.priceMinorUnits)}`
                       : 'Included'}
                 </small>
               </span>
@@ -197,7 +174,7 @@ export default function PizzaBuilder({ token, onOrder, setNotice }) {
           <h3>Order summary</h3>
           <p>{items.base} base · {items.sauce} · {items.cheese}</p>
           <p>Vegetables: {items.vegetables.length ? items.vegetables.join(', ') : 'None'}</p>
-          <p className="summary-total">Total <strong>{formatPrice(totalPaise)}</strong></p>
+          <p className="summary-total">Total <strong>{formatPrice(totalMinorUnits)}</strong></p>
           <p className="muted">Stock is reserved for 15 minutes while payment is completed.</p>
         </div>
       )}

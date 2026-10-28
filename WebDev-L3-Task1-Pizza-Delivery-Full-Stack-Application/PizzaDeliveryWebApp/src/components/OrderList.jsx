@@ -1,6 +1,6 @@
 import { formatPrice, statusLabels } from '../api.js'
 
-export default function OrderList({ orders, admin = false, onStatusChange, busyOrder }) {
+export default function OrderList({ orders, admin = false, onStatusChange, onResumePayment, busyOrder }) {
   if (!orders.length) {
     return <p className="empty-state">No orders yet. Your paid orders will appear here.</p>
   }
@@ -28,7 +28,9 @@ export default function OrderList({ orders, admin = false, onStatusChange, busyO
               Vegetables: {order.items.vegetables?.length ? order.items.vegetables.join(', ') : 'None'}
             </p>
             <div className="order-card-footer">
-              <strong>{formatPrice(order.totalPaise)}</strong>
+              <strong>
+                {formatPrice(order.totalMinorUnits, order.currency || 'INR')}
+              </strong>
               {order.refundStatus === 'processed' && <span className="muted">Refund processed</span>}
               {order.refundStatus === 'pending' && <span className="muted">Refund requested</span>}
               {order.refundStatus === 'failed' && <span className="low-stock">Refund needs support</span>}
@@ -40,6 +42,16 @@ export default function OrderList({ orders, admin = false, onStatusChange, busyO
                   onClick={() => onStatusChange(order._id, next)}
                 >
                   {busyOrder === order._id ? 'Saving…' : `Move to ${statusLabels[next]}`}
+                </button>
+              )}
+              {!admin && order.status === 'payment_pending' && (
+                <button
+                  className="button button-primary"
+                  disabled={busyOrder === order._id}
+                  type="button"
+                  onClick={() => onResumePayment(order)}
+                >
+                  {busyOrder === order._id ? 'Opening checkout…' : 'Continue payment'}
                 </button>
               )}
             </div>

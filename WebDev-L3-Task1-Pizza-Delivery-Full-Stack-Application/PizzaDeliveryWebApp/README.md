@@ -28,12 +28,14 @@ If `server\.env` already exists, add the missing settings from `server\.env.exam
 - `MONGODB_URI`: MongoDB connection URI. Use the `pizza_delivery` database.
 - `JWT_SECRET`: unique random secret of at least 32 characters.
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: admin account credentials. The password must have at least 12 characters. The admin is created on first startup and cannot be registered through the customer form.
-- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`: test-mode API credentials from Razorpay.
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`: test-mode API credentials from Razorpay. The configured Razorpay account must support USD; new checkout orders are charged in USD.
 - `RAZORPAY_WEBHOOK_SECRET`: the webhook secret configured for `/api/payments/webhook`; subscribe to `payment.captured` and `payment.failed`.
 - `RESEND_API_KEY` and `EMAIL_FROM`: email service key and verified sender address.
+- `EMAIL_MODE`: use `resend` for delivery, or `console` for local development without a provider. Console mode prints verification and reset links in the API terminal and is rejected when `NODE_ENV=production`.
 - `CLIENT_URL`: frontend origin, usually `http://localhost:5173`.
 
 Keep all secrets in `server/.env`. It is ignored by Git. Never put server keys in frontend environment variables or commit them.
+The API can start without valid admin credentials, but admin sign-in stays disabled until `ADMIN_EMAIL` and an `ADMIN_PASSWORD` of at least 12 characters are configured. With `EMAIL_MODE=resend`, email actions require a valid Resend API key (starting with `re_`) and a sender address verified with Resend. For local development without Resend, set `EMAIL_MODE=console` and use the verification or reset link printed in the backend terminal.
 
 Generate a JWT secret from PowerShell with:
 
@@ -58,8 +60,9 @@ When `server/.env` already exists, do not repeat the copy command; add only miss
 - Customer registration, email verification, sign-in, and emailed password reset.
 - Separate admin sign-in and role-checked admin routes.
 - Custom pizza builder: five bases, five sauces, cheese choices, and multiple vegetables.
+- Menu prices and new Razorpay payments use US dollars (USD), stored in cents. Existing historical INR and ZAR orders remain labelled in their original currencies. Prices are displayed in the same currency customers are charged; no exchange-rate conversion is applied.
 - Server-calculated totals and live stock reservation before payment.
-- Razorpay checkout; order confirmation requires a valid checkout signature and a captured payment verified against Razorpay. Failed or expired reservations return stock; late captured payments request a refund.
+- Razorpay checkout; order confirmation requires a valid checkout signature and a captured payment verified against Razorpay. Customers can resume payment for a pending order until its 15-minute stock reservation expires. Failed or expired reservations return stock; late captured payments request a refund.
 - Customer order tracking and admin order updates, refreshed by polling.
 - Admin inventory adjustment and configurable low-stock thresholds.
 - Scheduled low-stock email alerts; an alert is sent again after stock has been replenished above its threshold.
